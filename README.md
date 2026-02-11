@@ -6,4 +6,6 @@
 1. Create own data laoders, and eval functions. 
 2. Things to include in readme: input and ouputs, model architecture and repo architecture. replication instructions and construct vs main file description
 
+3. Put __init__ and export in all modules. 
+
 ```
