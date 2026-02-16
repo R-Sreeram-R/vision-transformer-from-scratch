@@ -6,7 +6,7 @@ def train_step(model,dataloader,loss_fn,optimizer,device):
 
     model.train()
 
-    train_loss, test_loss = 0,0 
+    train_loss, train_acc = 0,0 
 
     for batch, (X,y) in enumerate(dataloader):
 
