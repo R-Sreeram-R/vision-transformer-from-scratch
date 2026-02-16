@@ -1,8 +1,8 @@
 import torch 
 from torch import nn
 
-from data.preprocessing import PatchEmbedding
-from transformer_encoder import TransformerEncoderBlock
+from src.data.preprocessing import PatchEmbedding
+from src.models.transformer_encoder import TransformerEncoderBlock
 
 class VisionTransformer(nn.Module):
     
@@ -18,7 +18,7 @@ class VisionTransformer(nn.Module):
                  mlp_dropout = 0.1,
                  embedding_dropout = 0.1,
                  num_classes = 37):
-        super.__init__()
+        super().__init__()
 
         assert img_size % patch_size == 0, f"Image size should be divisible by patch size"
 
@@ -44,23 +44,23 @@ class VisionTransformer(nn.Module):
                       out_features=num_classes)
         )
 
-        def forward(self,x):
+    def forward(self,x):
 
-            batch_size = x.shape[0]
-            
-            # infer size on its own
-            class_token = self.class_embedding.expand(batch_size,-1,-1)
+        batch_size = x.shape[0]
+        
+        # infer size on its own
+        class_token = self.class_embedding.expand(batch_size,-1,-1)
 
-            x = self.patch_embedding(x)
+        x = self.patch_embedding(x)
 
-            x = torch.cat((class_token,x),dim=1)
+        x = torch.cat((class_token,x),dim=1)
 
-            x = self.position_embedding + x
+        x = self.position_embedding + x
 
-            x = self.embedding_dropout(x)
+        x = self.embedding_dropout(x)
 
-            x = self.transformer_encoder(x)
+        x = self.transformer_encoder(x)
 
-            x = self.classifier(x[:,0])
+        x = self.classifier(x[:,0])
 
-            return x
+        return x

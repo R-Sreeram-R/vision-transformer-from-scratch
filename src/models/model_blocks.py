@@ -17,15 +17,15 @@ class MultiheadSelfAttention(nn.Module):
             batch_first = True 
         )
 
-        def forward(self,x):
+    def forward(self,x):
 
-            x = self.layer_norm(x)
-            attn_output, _ = self.multihead_attn(query =x,
-                                                 key = x,
-                                                 value = x,
-                                                 need_weights=False)
-            
-            return attn_output 
+        x = self.layer_norm(x)
+        attn_output, _ = self.multihead_attn(query =x,
+                                                key = x,
+                                                value = x,
+                                                need_weights=False)
+        
+        return attn_output 
         
 class MLPBlock(nn.Module):
 
