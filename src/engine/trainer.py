@@ -1,82 +1,137 @@
-import torch 
+import torch
+from tqdm.auto import tqdm
 
-from tqdm.auto import tqdm 
-
-def train_step(model,dataloader,loss_fn,optimizer,device):
+def train_step(model, dataloader, loss_fn, optimizer, device, epoch):
 
     model.train()
 
-    train_loss, train_acc = 0,0 
+    train_loss, train_acc = 0, 0
 
-    for batch, (X,y) in enumerate(dataloader):
+    # Mini-batch progress bar
+    batch_bar = tqdm(
+        enumerate(dataloader),
+        total=len(dataloader),
+        desc=f"Epoch {epoch} [Train]",
+        leave=False
+    )
 
-        X,y = X.to(device), y.to(device)
+    for batch, (X, y) in batch_bar:
+
+        X, y = X.to(device), y.to(device)
 
         y_pred = model(X)
 
-        loss = loss_fn(y_pred,y)
-        train_loss += loss 
+        loss = loss_fn(y_pred, y)
+        train_loss += loss.item()
 
         optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
 
-        loss.backward() 
+        y_pred_class = torch.argmax(torch.softmax(y_pred, dim=1), dim=1)
+        batch_acc = (y_pred_class == y).sum().item() / len(y_pred)
 
-        optimizer.step() 
+        train_acc += batch_acc
 
-        y_pred_class = torch.argmax(torch.softmax(y_pred,dim=1), dim=1)
-        train_acc += (y_pred_class == y).sum().item()/len(y_pred)
+        # Update live metrics in bar
+        batch_bar.set_postfix({
+            "batch": f"{batch+1}/{len(dataloader)}",
+            "loss": f"{loss.item():.4f}",
+            "acc": f"{batch_acc:.4f}"
+        })
 
     train_loss = train_loss / len(dataloader)
     train_acc = train_acc / len(dataloader)
+
     return train_loss, train_acc
 
-def test_step(model, dataloader, loss_fn,device):
 
-  model.eval() 
+def test_step(model, dataloader, loss_fn, device, epoch):
 
-  test_loss, test_acc = 0, 0
+    model.eval()
 
+    test_loss, test_acc = 0, 0
 
-  with torch.inference_mode():
-      
-      for batch, (X, y) in enumerate(dataloader):
-          
-          X, y = X.to(device), y.to(device)
+    batch_bar = tqdm(
+        enumerate(dataloader),
+        total=len(dataloader),
+        desc=f"Epoch {epoch} [Test]",
+        leave=False
+    )
 
-          test_pred_logits = model(X)
+    with torch.inference_mode():
 
-          loss = loss_fn(test_pred_logits, y)
-          test_loss += loss.item()
+        for batch, (X, y) in batch_bar:
 
-          test_pred_labels = test_pred_logits.argmax(dim=1)
-          test_acc += ((test_pred_labels == y).sum().item()/len(test_pred_labels))
+            X, y = X.to(device), y.to(device)
 
-  test_loss = test_loss / len(dataloader)
-  test_acc = test_acc / len(dataloader)
-  return test_loss, test_acc
+            test_pred_logits = model(X)
+
+            loss = loss_fn(test_pred_logits, y)
+            test_loss += loss.item()
+
+            test_pred_labels = test_pred_logits.argmax(dim=1)
+            batch_acc = (test_pred_labels == y).sum().item() / len(test_pred_labels)
+
+            test_acc += batch_acc
+
+            batch_bar.set_postfix({
+                "batch": f"{batch+1}/{len(dataloader)}",
+                "loss": f"{loss.item():.4f}",
+                "acc": f"{batch_acc:.4f}"
+            })
+
+    test_loss = test_loss / len(dataloader)
+    test_acc = test_acc / len(dataloader)
+
+    return test_loss, test_acc
 
 
 def train(model, train_loader, test_loader, optimizer, loss_fn, epochs, device):
 
-    results = {"train_loss": [],
-      "train_acc": [],
-      "test_loss": [],
-      "test_acc": []
+    results = {
+        "train_loss": [],
+        "train_acc": [],
+        "test_loss": [],
+        "test_acc": []
     }
 
-    for epoch in tqdm(range(epochs)):
+    # Epoch-level progress bar
+    epoch_bar = tqdm(range(epochs), desc="Training Progress")
 
-        train_loss, train_acc = train_step(model=model, dataloader=train_loader, loss_fn=loss_fn, optimizer=optimizer, device = device)
-        
-        test_loss, test_acc = test_step(model=model,dataloader=test_loader,loss_fn=loss_fn,device=device)
+    for epoch in epoch_bar:
+
+        train_loss, train_acc = train_step(
+            model=model,
+            dataloader=train_loader,
+            loss_fn=loss_fn,
+            optimizer=optimizer,
+            device=device,
+            epoch=epoch+1
+        )
+
+        test_loss, test_acc = test_step(
+            model=model,
+            dataloader=test_loader,
+            loss_fn=loss_fn,
+            device=device,
+            epoch=epoch+1
+        )
+
+        epoch_bar.set_postfix({
+            "train_loss": f"{train_loss:.4f}",
+            "train_acc": f"{train_acc:.4f}",
+            "test_loss": f"{test_loss:.4f}",
+            "test_acc": f"{test_acc:.4f}"
+        })
 
         print(
-          f"Epoch: {epoch+1} | "
-          f"train_loss: {train_loss:.4f} | "
-          f"train_acc: {train_acc:.4f} | "
-          f"test_loss: {test_loss:.4f} | "
-          f"test_acc: {test_acc:.4f}"
-        ) 
+            f"Epoch: {epoch+1} | "
+            f"train_loss: {train_loss:.4f} | "
+            f"train_acc: {train_acc:.4f} | "
+            f"test_loss: {test_loss:.4f} | "
+            f"test_acc: {test_acc:.4f}"
+        )
 
         results["train_loss"].append(train_loss)
         results["train_acc"].append(train_acc)
@@ -84,5 +139,3 @@ def train(model, train_loader, test_loader, optimizer, loss_fn, epochs, device):
         results["test_acc"].append(test_acc)
 
     return results
-
-
